@@ -385,11 +385,11 @@ function buttonClickSearch() {
     buttonClickSend(ipData, el, freeData);
 }
 
-function buttonClickCloseSocket() {
-    console.log("Request Close Socket!")
+function buttonClickDropMembership() {
+    console.log("Request dropMembership!")
     const message = {};
     const request = new XMLHttpRequest();
-    request.open('POST', serverURL + 'closeSocket');
+    request.open('POST', serverURL + 'dropMembership');
     request.setRequestHeader("Content-type", "application/json");
     request.send(JSON.stringify(message));
 }

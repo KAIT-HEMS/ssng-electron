@@ -5,7 +5,7 @@
 
 "use strict";
 
-const appname = "SSNG";
+// const appname = "SSNG";
 const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 
 const path = require("path");
@@ -13,10 +13,8 @@ const util = require("util");
 const os = require("os");
 const fs = require("fs");
 
-// electronのmain window
 let mainWindow = null;
 const mainFunction = require("./ssng.js");
-mainFunction.funcIndex();
 
 // foreground
 function createWindow() {
@@ -55,17 +53,20 @@ function createWindow() {
   Menu.setApplicationMenu(menu); // set the modified menu
 
   mainWindow.loadURL("http://localhost:3001/");
-
+  mainWindow.openDevTools();
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
-app.on("ready", createWindow);
+// app.on("ready", createWindow);
+app.on('ready', () => {
+  createWindow();
+  mainFunction.funcIndex();
+});
 
 // アプリケーションがアクティブになった時の処理
 app.on("activate", () => {
-  // メインウィンドウが消えている場合は再度メインウィンドウを作成する
   if (mainWindow === null) {
     createWindow();
   }
@@ -75,4 +76,7 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
-app.on('before-quit', () => console.log('app.before-quit'));
+app.on('before-quit', () => {
+  console.log('app.before-quit');
+  mainFunction.closeSocket();
+});

@@ -23,6 +23,7 @@ const isIPv6 = false;
 const EL_port = 3610;
 const EL_multiAdr4 = "224.0.23.0";
 const EL_multiAdr6 = "FF02::1";
+const EL_multicastAdr = isIPv6 ? EL_multiAdr6 : EL_multiAdr4;
 
 const epcNode = {
   0x80: [0x30],
@@ -138,10 +139,10 @@ module.exports.funcIndex = function () {
     res.send("Got a POST request at /ssng/saveLog");
   });
 
-  app.post("/ssng/closeSocket", function (req, res) {
+  app.post("/ssng/dropMembership", function (req, res) {
     console.log("REST: POST /ssng/clsoeSocket");
-    res.send("Got a POST request at /ssng/closeSocket");
-    closeSocket();
+    res.send("Got a POST request at /ssng/dropMembership");
+    dropMembership();
   });
 
   // websocket: A process when WebSocket server gets a connection from a client
@@ -156,7 +157,9 @@ module.exports.funcIndex = function () {
   });
 
   // UDP: receive
+  
   sock = dgram.createSocket(isIPv6 ? "udp6" : "udp4", function (msg, rinfo) {
+  // sock = dgram.createSocket({type:(isIPv6 ? "udp6" : "udp4"), reuseAddr: true}, function (msg, rinfo) {
     console.log("UDP receive: \n\trinfo= ", rinfo, "\n\tmsg= ", msg);
     const ip = rinfo.address;
     let uint8Array = [];
@@ -181,14 +184,24 @@ module.exports.funcIndex = function () {
     elGet(ip, uint8Array);
   });
 
+  sock.on('error', (err) => {
+    console.log(`server error:\n${err.stack}`);
+    sock.close();
+  });
+
+  sock.on('listening', () => {
+    const address = sock.address();
+    console.log(`server listening ${address.address}:${address.port}`);
+  });
+
   // UDP: setting for multicast
   sock.bind(EL_port, function () {
-    sock.addMembership(isIPv6 ? EL_multiAdr6 : EL_multiAdr4);
-    console.log("port bind OK!");
+    sock.addMembership(EL_multicastAdr);
+    console.log("port bind OK!", EL_multicastAdr);
   });
 
   // Send INF (EPC=0xD5)
-  const multicastAddress = isIPv6 ? EL_multiAdr6 : EL_multiAdr4;
+  // const multicastAddress = isIPv6 ? EL_multiAdr6 : EL_multiAdr4;
   const instanceList = [
     0x10,
     0x81,
@@ -209,12 +222,18 @@ module.exports.funcIndex = function () {
     0xff,
     0x01,
   ];
-  sendUdp(multicastAddress, instanceList);
+  sendUdp(EL_multicastAdr, instanceList);
 }; // Addition on 2021.03.10
 
-function closeSocket() {
+function dropMembership() {
+  console.log("function dropMembership");
+  sock.dropMembership(EL_multicastAdr);
+  console.log("dropMembership!");
+}
+
+module.exports.closeSocket = function () {
   console.log("function closeSocket");
-  sock.close(()=>{console.log("Socket is closed!")});
+  sock.close(()=>console.log("Socket is closed"));
 }
 
 function sendUdp(ip, byteArray) {
