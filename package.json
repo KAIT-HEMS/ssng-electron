@@ -1,54 +1,58 @@
 {
-  "name": "ssng-electron",
-  "version": "1.0.0",
+  "name": "ssng",
+  "version": "0.2.0",
   "description": "SSNG electron version",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "start": "electron .",
+    "build-win": "electron-builder --win --x64",
+    "build-mac": "electron-builder --mac --x64",
+    "build-appx": "electron-builder -w appx",
+    "postinstall": "electron-builder install-app-deps"
   },
-  "keywords": [],
+  "build": {
+    "appId": "com.hirofujita.ssng",
+    "productName": "ssng",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "assets",
+      "src",
+      "package.json",
+      "package-lock.json"
+    ],
+    "mac": {
+      "icon": "src/assets/icon1024.png",
+      "target": "dmg"
+    },
+    "win": {
+      "icon": "src/assets/win/icon1024.png",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "appx": {
+      "identityName": "ECHONETCONSORTIUM.ssng",
+      "applicationId": "ECHONETCONSORTIUM.ssng",
+      "publisherDisplayName": "HIROYUKI FUJITA",
+      "publisher": "CN=",
+      "languages": [
+        "JA-JP",
+        "EN-US"
+      ]
+    }
+  },
+  "keywords": [
+    "SSNG",
+    "ECHONET Lite"
+  ],
   "author": "Hiroyuki Fujita",
   "license": "MIT",
   "devDependencies": {
-    "@electron-forge/cli": "^6.0.0-beta.54",
-    "@electron-forge/maker-deb": "^6.0.0-beta.54",
-    "@electron-forge/maker-rpm": "^6.0.0-beta.54",
-    "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
-    "@electron-forge/maker-zip": "^6.0.0-beta.54",
-    "electron": "^11.3.0"
-  },
-  "dependencies": {
-    "electron-squirrel-startup": "^1.0.0",
-    "express": "^4.17.1",
-    "ws": "^7.4.3"
-  },
-  "config": {
-    "forge": {
-      "packagerConfig": {},
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "ssng_electron"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
+    "electron": "^11.1.1",
+    "electron-builder": "^22.10.5"
   }
 }

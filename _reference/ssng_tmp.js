@@ -24,6 +24,7 @@ const EL_port = 3610;
 const EL_multiAdr4 = "224.0.23.0";
 const EL_multiAdr6 = "FF02::1";
 const EL_multicastAdr = isIPv6 ? EL_multiAdr6 : EL_multiAdr4;
+const SRC_adr = '192.168.1.3';
 
 const epcNode = {
   0x80: [0x30],
@@ -196,6 +197,7 @@ module.exports.funcIndex = function () {
 
   // UDP: setting for multicast
   sock.bind(EL_port, function () {
+    // sock.addMembership(EL_multicastAdr, SRC_adr);
     sock.addMembership(EL_multicastAdr);
     console.log("port bind OK!", EL_multicastAdr);
   });
