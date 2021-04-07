@@ -1,5 +1,5 @@
 // renderer.js for SSNG-electron
-// 2021.04.06
+// 2021.04.07
 
 const VERSION = "0.2.0 2021.04.06";
 let tid = 0;
@@ -103,7 +103,6 @@ const instanceList = [
 //   ipv6:[{name:<device name:string>, address:<IP address:string>}]
 // }
 const localAddress = getLocalAddress();
-
 const ipv4 = localAddress.ipv4[0].address;
 
 // create a folder "ssng-log" to save log files
@@ -155,26 +154,41 @@ server.on("message", (msg, rinfo) => {
 });
 
 // bind port and set for multicast, then start listening
+// 複数の network if にも対応。addMembership 第２引数に network if の ip address を指定
 server.bind(EL_port, function () {
-  server.addMembership(EL_mcAddress);
+  for (dev of localAddress.ipv4) {
+    server.addMembership(EL_mcAddress, dev.address);
+  }
+  // addMembership の第２引数を指定しない場合は、OSが適当な network if を利用する
+  // server.addMembership(EL_mcAddress);
   console.log("port bind OK!");
 });
 
 // 起動時にインスタンスリストをマルチキャスト送信する
 sendUdp(EL_mcAddress, instanceList);
 
-// send unicast UDP data
-// ip: string, byteArray: array of uint8
+// send UDP
+// string:ip, array of uint8:byteArray
+// ip が multicast address の場合は別処理
 function sendUdp(ip, byteArray) {
-  // string:ip, array:byteArray
-  const buffer = new Buffer.from(byteArray);
-  const client = dgram.createSocket("udp4");
-  client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
-    client.close();
-  });
+  // unicast
+  if (ip !== EL_mcAddress) {
+    const buffer = new Buffer.from(byteArray);
+    const client = dgram.createSocket("udp4");
+    // console.log('sendUdp-unicast')
+    client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
+      client.close();
+    });
+  // multicast
+  } else {
+    for (dev of localAddress.ipv4) {
+      // console.log('sendUdp-multicast', dev);
+      sendUdpMc(ip, byteArray, dev.address);
+    }
+  }
 }
 
-// send multicast
+// send UDP to multicast address
 function sendUdpMc(ip, byteArray, src) {
   // string:ip, array:byteArray
   const buffer = new Buffer.from(byteArray);
@@ -364,6 +378,10 @@ for (let adr of localAddress.ipv4){
   console.log(adr.name, adr.address);
 }
 
+// パケットモニターの表示内容を作成する
+// 送信データは表示する
+// 受信データのうち、vm.filters に名前があるものは表示する
+// array:vm.filters enum:showLoopBack, showGet, showInf, showGetres, showSNA
 function displayLog() {
   let log = [];
   for (let dataLog of dataLogArray) {
@@ -375,7 +393,9 @@ function displayLog() {
       address: dataLog.ip,
       hex: elFormat(dataLog.data),
     };
-    if (dataLog.direction == "T" || filterEsv(esv)) {
+    if (dataLog.direction == "T") {
+      log.push(pkt);
+    } else if (filterEsv(esv) && filterLoopBack(dataLog.ip)) {
       log.push(pkt);
     }
   }
@@ -390,6 +410,24 @@ function displayLog() {
   }
   vm.packetDetail = "";
   return;
+
+  // showLoopBack があれば true
+  // showLoopBack がなくて、ip が loop back address ならば false 
+  // showLoopBack がなくて、ip が loop back address でなければ true
+  // Loop bak address は array:vm.mpIps
+  function filterLoopBack(ip) {
+    if (vm.filters.includes("showLoopBack")) {
+      return true;
+    } else {
+      let flag = true;
+      for (let myIp of vm.myIps) {
+        if (ip == myIp) {
+          flag = false;
+        }
+      }
+      return flag;
+    }
+  }
 
   function filterEsv(esv) {
     if (!vm.filters.includes("showGet") && esv == '62') {
@@ -532,7 +570,11 @@ function checkInputValue(inputType, inputValue) {
   }
 }
 
+// UI で SEND ボタンがクリックされた時に EL data を送信する
+// ipData: string, el: object, freeData: object
+// UI の ラジオボタンにしたがって、el または freeData を使う
 function buttonClickSend(ipData, el, freeData) {
+  // データチェック: ip
   if (!checkInputValue("ip", vm.ipData)) {
     vm.ipDataStyle.color = "red";
     window.alert("Check IP address");
