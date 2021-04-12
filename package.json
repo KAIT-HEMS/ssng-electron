@@ -1,6 +1,6 @@
 {
   "name": "ssng",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SSNG electron version",
   "main": "src/main.js",
   "scripts": {
@@ -27,7 +27,7 @@
       "target": "dmg"
     },
     "win": {
-      "icon": "src/assets/win/icon1024.png",
+      "icon": "src/assets/icon1024.png",
       "target": "nsis"
     },
     "nsis": {
