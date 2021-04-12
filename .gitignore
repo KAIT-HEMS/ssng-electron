@@ -1,5 +1,5 @@
 dist
-_reference/
+_reference
 node_modules
 *.log
 npm-debug.log*
