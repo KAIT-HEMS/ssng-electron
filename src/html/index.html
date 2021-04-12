@@ -60,6 +60,7 @@
       border-top: 1px solid #cccccc;
     }
   </style>
+
 </head>
 
 <body>
@@ -154,17 +155,17 @@
             <div class="col-auto h5 mt-2">Packets Monitor</div>
             <div class="col"></div>
 
-            <div class="col-auto pl-0">
-              <div class="input-group border ml-2">
+            <div class="col-auto pl-0 pr-1">
+              <div class="input-group border ml-0">
                 <div class="input-group-prepend">
                   <span class="input-group-text">Order</span>
                 </div>
-                <div class="form-check form-check-inline pl-2">
+                <div class="form-check form-check-inline pl-1 mr-1">
                   <input type="radio" class="form-check-input" id="normalOrder" v-model="rbOrder" value="normalOrder"
                     v-on:change="updateRbOrder">
                   <label for="normalOrder" class="form-check-label">Normal</label>
                 </div>
-                <div class="form-check form-check-inline pl-0 mr-0">
+                <div class="form-check form-check-inline pl-0 mr-1">
                   <input type="radio" class="form-check-input" id="reverseOrder" v-model="rbOrder" value="reverseOrder"
                     v-on:change="updateRbOrder">
                   <label for="reverseOrder" class="form-check-label ">Reverse</label>
@@ -172,27 +173,27 @@
               </div>
             </div>
 
-            <div class="col-auto pl-0">
+            <div class="col-auto pl-0 pr-1">
               <div class="input-group border">
                 <div class="input-group-prepend">
                   <div class="input-group-text">Filter</div>
                 </div>
-                <div class="form-check form-check-inline pl-2">
+                <div class="form-check form-check-inline pl-1 mr-1">
                   <input type="checkbox" class="form-check-input" id="showLoopBack" value="showLoopBack" v-model="filters"
                     v-on:change="updateFilters">
                   <label class="form-check-label" for="showGet">Loop back</label>
                 </div>
-                <div class="form-check form-check-inline pl-0">
+                <div class="form-check form-check-inline pl-0 mr-1">
                   <input type="checkbox" class="form-check-input" id="showGet" value="showGet" v-model="filters"
                     v-on:change="updateFilters">
                   <label class="form-check-label" for="showGet">GET</label>
                 </div>
-                <div class="form-check form-check-inline pl-0">
+                <div class="form-check form-check-inline pl-0 mr-1">
                   <input type="checkbox" class="form-check-input" id="showInf" value="showInf" v-model="filters"
                     v-on:change="updateFilters">
                   <label class="form-check-label" for="showInf">INF</label>
                 </div>
-                <div class="form-check form-check-inline pl-0">
+                <div class="form-check form-check-inline pl-0  mr-1">
                   <input type="checkbox" class="form-check-input" id="showGetres" value="showGetres" v-model="filters"
                     v-on:change="updateFilters">
                   <label class="form-check-label" for="showGetres">GET_RES</label>
@@ -205,7 +206,7 @@
               </div>
             </div>
 
-            <div class="col-auto mt-1 pl-0">
+            <div class="col-auto mt-1 pl-0 pr-1">
               <button type="button" class="btn btn-secondary btn-sm" title="Clear Log" v-on:click="clearLog">CLEAR</button>
               <button type="button" class="btn btn-secondary btn-sm" title="Save Log" v-on:click="saveLog">SAVE</button>
             </div>
@@ -242,8 +243,10 @@
 
   <!-- electron で jQuery を正常に動作させるため、以下の script を追加 -->
   <script>
-    window.nodeRequire = require;
-    delete window.module;
+    // const { require } = window.native;  // 2021.04.09 main.js の preload.js 対応
+    // window.nodeRequire = require;
+    // delete window.module;
+    // delete window.require;
   </script>
   <script src="./lib/jquery-3.3.1.min.js"></script>
   <script src="./lib/popper.min.js"></script>

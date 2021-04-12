@@ -1,5 +1,5 @@
 // main.js for ssng-electron
-// 2021.04.06
+// 2021.04.09
 // Copyright (c) 2021 Kanagawa Institute of Technology
 // Released under the MIT License.
 // 
@@ -8,6 +8,7 @@
 "use strict";
 
 const {app, BrowserWindow, Menu} = require('electron');
+const path = require('path');
 let mainWindow = null;
 
 function createWindow () {
@@ -16,8 +17,9 @@ function createWindow () {
     width: 1200,
     height: 940,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: false,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -43,6 +45,9 @@ function createWindow () {
       label: 'View',
       submenu: [
         { role: 'reload' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
         { role: 'toggleDevTools' }
       ]
     },

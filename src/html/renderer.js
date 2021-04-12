@@ -1,51 +1,29 @@
 // renderer.js for SSNG-electron
-// 2021.04.08
+// 2021.04.12
 
-const VERSION = "0.2.0 2021.04.06";
-let tid = 0;
-let packetId = 0;
-let active_packet_id = "";
-let dataLogArray = [];
-let analyzedData = "";
+// UDPで受信したデータは、dataLogArray に格納される。
+// packetId が 0 から順に付加される。
+
+const VERSION = "0.3.0 2021.04.12";
+const EL_port = 3610;
+const EL_mcAddress = "224.0.23.0";
+const logDirName = '/ssng-log';
+
+let tid = 0;                // tid:uint8, ECHONET Lite の TID
+let packetId = 0;           // 送受信パケットのid
+let active_packet_id = "";  // Packet monitor 上で選択された packet の id
+let dataLogArray = [];      // 送受信したパケットを配列として格納
+let analyzedData = "";      // 受信データの解析結果
 
 console.log("SSNG" + VERSION);
 
 // レンダラープロセス（ウェブページ）
-const dgram = require("dgram");
-const os = require("os");
-const fs = require("fs");
-
-const EL_port = 3610;
-const EL_mcAddress = "224.0.23.0";
-
-// EPC:0x83 識別番号 を乱数を使ってユニークな値にする Total 17bytes
-// 0xFE + maker code(3byte) + 13 bytes unique data
-// FE, 00, 00, 77, 00,00,00,00,00,00,00,00,00, XX,XX,XX,XX
-// 0x00000000...0xFFFFFFFF: 0...4294967295 で乱数を発生
-const randomNumber = getRandomInt(0, 4294967296);
-const hexNumber = toHex(randomNumber);
-let epc83 = [0xfe,0x00,0x00,0x77,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00];
-for (let i = 0; i < 4; i++) {
-  epc83.push(parseInt((hexNumber.substr(i*2, 2)), 16));
-}
-// console.log(epc83);
-
-// min以上 max未満の整数値の乱数を発生する
-function getRandomInt(min, max) { // min:int, max:int return:int
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
-}
-
-// 入力データを4byteのHEX表記の文字列に変換
-function toHex(v) { // v:int, return:string
-  return (('00000000' + v.toString(16).toUpperCase()).substr(-8));
-}
+const { dgram, os, fs, Buffer } = window.native;
 
 const epcNode = {
   0x80: [0x30],
   0x82: [0x01, 0x0c, 0x01, 0x00],
-  0x83: epc83,
+  0x83: epc83(),
   0x8a: [0x00, 0x00, 0x77],
   0x9d: [0x02, 0x80, 0xd5],
   0x9e: [0x00],
@@ -70,6 +48,32 @@ const epcNode = {
   0xd6: [0x01, 0x05, 0xff, 0x01],
   0xd7: [0x01, 0x05, 0xff],
 };
+
+// EPC:0x83 識別番号 を乱数を使ってユニークな値にする。Total 17bytes。
+// Data format: 0xFE + maker code(3byte) + 13 bytes unique data
+// FE, 00, 00, 77, 00,00,00,00,00,00,00,00,00, XX,XX,XX,XX
+// 0x00000000...0xFFFFFFFF: 0...4294967295 で乱数を発生
+function epc83() {
+  const hexNumber = toHex(getRandomInt(0, 4294967296));   // hexNumber:string HEXで4byteの乱数
+  let edt = [0xfe,0x00,0x00,0x77,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00];
+  // 4byteの乱数を追加。冒頭の '0x'を飛ばす。
+  for (let i = 0; i < 4; i++) {
+    edt.push(parseInt((hexNumber.substr(i*2, 2)), 16));
+  }
+  return edt;
+  
+  // min以上 max未満の整数値の乱数を発生する関数
+  function getRandomInt(min, max) { // min:int, max:int return:int
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  }
+  
+  // 入力INTデータを4byteのHEX表記の大文字の文字列に変換する関数。
+  function toHex(v) { // v:int, return:string
+    return (('00000000' + v.toString(16).toUpperCase()).substr(-8));
+  }
+}
 
 const epcDevice = {
   0x80: [0x30],
@@ -103,33 +107,24 @@ const instanceList = [
   0x01,
 ];
 
-// get a list of local IP address(ipv4)
-// {
-//   ipv4:[{name:<device name:string>, address:<IP address:string>}],
-//   ipv6:[{name:<device name:string>, address:<IP address:string>}]
-// }
-const localAddress = getLocalAddress();
-
-// create a folder "ssng-log" to save log files
-// $HOME/ssng-log
-const homedir = os.homedir();
-const logdir = homedir + '/ssng-log';
-fs.readdir(homedir, function (err, files) {
+// create a log folder
+fs.readdir(os.homedir(), function (err, files) {
   if (err) throw err;
   if (files.includes("ssng-log") == false) {
-    fs.mkdir(logdir, (err) => {
+    fs.mkdir(os.homedir() + logDirName, (err) => {
       if (err) console.log("Error: mkdir");
     });
   }
 });
 
-// UDP
+// create UDP socket
 const server = dgram.createSocket("udp4");
 server.on("error", (err) => {
   console.log(`server error:\n${err.stack}`);
   server.close();
 });
 
+// start listening
 server.on("listening", () => {
   const address = server.address();
   console.log(`server listening ${address.address}:${address.port}`);
@@ -139,33 +134,34 @@ server.on("listening", () => {
 server.on("message", (msg, rinfo) => {
   let uint8Array = [];
   for (let i = 0; i < msg.length; i++) {
-    // uint8Array.push(toStringHex(msg.readUInt8(i), 1));
     uint8Array.push(msg.readUInt8(i));
   }
   console.log(
     `UDP Receive: from ${rinfo.address}:${rinfo.port} data: ${uint8Array}`
   );
 
-  // GETを受信した場合の処理
+  // GETを受信した場合の処理(GET_RES を返す)
   elGet(rinfo.address, uint8Array);
 
-  // パケットモニタの表示処理
-  const packet_id = 'packet-' + packetId++;
+  // 送受信したパケットを配列に保存
+  // const packet_id = 'packet-' + packetId++;
   const pkt = {
-      id:packet_id,
-      timeStamp:timeStamp(),
-      direction:"R",
-      ip:rinfo.address,
-      data:uint8Array
+      id:'packet-' + packetId++,  // id:string, packet id
+      timeStamp:timeStamp(),      // timeStamp: string
+      direction:"R",              // direction: string, enum['R', 'T'] R:receive, T:transmit
+      ip:rinfo.address,           // ip:string
+      data:uint8Array             // data:uint8[]
   }
   dataLogArray.push(pkt);
+
+  // パケットモニタの表示処理
   displayLog();
 });
 
-// bind port and set for multicast, then start listening
+// bind port and set for multicast
 // 複数の network if にも対応。addMembership 第２引数に network if の ip address を指定
 server.bind(EL_port, function () {
-  for (dev of localAddress.ipv4) {
+  for (dev of getLocalAddress().ipv4) {
     server.addMembership(EL_mcAddress, dev.address);
   }
   // addMembership の第２引数を指定しない場合は、OSが適当な network if を利用する
@@ -176,151 +172,7 @@ server.bind(EL_port, function () {
 // 起動時にインスタンスリストをマルチキャスト送信する
 sendUdp(EL_mcAddress, instanceList);
 
-// send UDP
-// string:ip, array of uint8:byteArray
-// ip が multicast address の場合は別処理
-function sendUdp(ip, byteArray) {
-  // unicast
-  if (ip !== EL_mcAddress) {
-    const buffer = new Buffer.from(byteArray);
-    const client = dgram.createSocket("udp4");
-    client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
-      client.close();
-    });
-  // multicast
-  } else {
-    for (dev of localAddress.ipv4) {
-      sendUdpMc(ip, byteArray, dev.address);
-    }
-  }
-}
-
-// send UDP to multicast address
-function sendUdpMc(ip, byteArray, src) {
-  // string:ip, array:byteArray
-  const buffer = new Buffer.from(byteArray);
-  const client = dgram.createSocket("udp4");
-  client.bind(0, () => {
-    client.setMulticastInterface(src);
-  });
-  client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
-    client.close();
-  });
-}
-
-// GETを受信した場合の処理
-function elGet(ip, uint8Array) { // ip:string, uint8Array:uint8[]
-  const elPacket = parseEL(uint8Array);
-  if (elPacket !== null) {
-    const deoj = elPacket.deoj[0] *256 + elPacket.deoj[1];
-    if (deoj == 0x05FF && elPacket.esv == 0x62) {
-      // controller and Get
-      const uint8ArraySend = createUint8ArraySend(elPacket, epcDevice);
-      sendUdp(ip, uint8ArraySend);
-    } else if (deoj == 0x0EF0 && elPacket.esv == 0x62) {
-      // node and Get
-      const uint8ArraySend = createUint8ArraySend(elPacket, epcNode);
-      sendUdp(ip, uint8ArraySend);
-    }
-  }
-}
-
-function createUint8ArraySend(elPacket, epcs) {
-  let uint8ArraySend = [
-    0x10,
-    0x81,
-    0x00,
-    0x00,
-    0x0e,
-    0xf0,
-    0x01,
-    0x0e,
-    0xf0,
-    0x01,
-    0x72,
-    0x01,
-    0x80,
-    0x00,
-  ];
-  uint8ArraySend[2] = elPacket.tid[0]; // tid
-  uint8ArraySend[3] = elPacket.tid[1]; // tid
-  uint8ArraySend[4] = elPacket.deoj[0]; // seoj
-  uint8ArraySend[5] = elPacket.deoj[1]; // seoj
-  uint8ArraySend[6] = elPacket.deoj[2]; // seoj
-  uint8ArraySend[7] = elPacket.seoj[0]; // deoj
-  uint8ArraySend[8] = elPacket.seoj[1]; // deoj
-  uint8ArraySend[9] = elPacket.seoj[2]; // deoj
-  uint8ArraySend[12] = elPacket.epc; // epc
-  const edt = epcs[elPacket.epc];
-  if (edt !== undefined) {
-    uint8ArraySend[10] = 0x72; // esv: Get_Res
-    uint8ArraySend[13] = edt.length; // PDC
-    for (let data of edt) {
-      uint8ArraySend.push(data);
-    }
-  } else {
-    uint8ArraySend[10] = 0x52; // esv: Get_SNA
-  }
-  return uint8ArraySend;
-}
-
-// 受信データのパース
-function parseEL(uint8Array) { // uint8Array:uint8[]
-  let elr = {};
-  if (uint8Array.length < 14) {
-    console.log("parseEL ERROR: UDP data is less than 14 bytes.");
-    return null;
-  }
-  const ehd = uint8Array[0] * 256 + uint8Array[1];
-  if (ehd != 0x1081) {
-    console.log("parseEL ERROR: EHD is wrong", uint8Array[0], uint8Array[1], ehd);
-    return null;
-  }
-  elr.ehd = [uint8Array[0], uint8Array[1]];
-  elr.tid = [uint8Array[2], uint8Array[3]];
-  elr.seoj = [uint8Array[4], uint8Array[5], uint8Array[6]];
-  elr.deoj = [uint8Array[7], uint8Array[8], uint8Array[9]];
-  elr.esv = uint8Array[10];
-  elr.opc = uint8Array[11];
-  elr.operations = uint8Array.slice(12);
-  if (elr.opc == 1) {
-    elr.epc = uint8Array[12];
-    elr.pdc = uint8Array[13];
-    if (elr.pdc !== 0) {
-      elr.edt = uint8Array.slice(14); // modified on 2021.03.10
-    }
-  }
-  return elr;
-}
-
-// Get a list of Local IP Address
-// return data: 
-// {
-//   ipv4:[{name:<device name:string>, address:<IP address:string>}],
-//   ipv6:[{name:<device name:string>, address:<IP address:string>}]
-// }
-function getLocalAddress() {
-  let ifacesObj = {};
-  ifacesObj.ipv4 = [];
-  ifacesObj.ipv6 = [];
-  let interfaces = os.networkInterfaces();
-  for (let dev in interfaces) {
-    interfaces[dev].forEach(function (details) {
-      if (!details.internal) {
-        switch (details.family) {
-          case "IPv4":
-            ifacesObj.ipv4.push({ name: dev, address: details.address });
-            break;
-          case "IPv6":
-            ifacesObj.ipv6.push({ name: dev, address: details.address });
-            break;
-        }
-      }
-    });
-  }
-  return ifacesObj;
-}
-
+// VUE
 var vm = new Vue({
   el: "#app",
   data: {
@@ -349,9 +201,6 @@ var vm = new Vue({
     buttonClickSearch: function () {
       buttonClickSearch();
     },
-    buttonClickCloseSocket: function () {
-      buttonClickCloseSocket();
-    },
     buttonClickSend: function () {
       buttonClickSend(this.ipData, this.el, this.freeData);
     },
@@ -375,9 +224,160 @@ var vm = new Vue({
 });
 
 // Show My IP addresses
-for (let adr of localAddress.ipv4){
+for (let adr of getLocalAddress().ipv4){
   vm.myIps.push(adr.address);
   console.log(adr.name, adr.address);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// funtions                                                                  //
+///////////////////////////////////////////////////////////////////////////////
+
+// UDP 送信 (unicast and multicast)
+// ip:string, byteArray:uint8[]
+function sendUdp(ip, byteArray) {
+  // unicast
+  if (ip !== EL_mcAddress) {
+    const buffer = new Buffer.from(byteArray);
+    const client = dgram.createSocket("udp4");
+    client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
+      client.close();
+    });
+  // multicast
+  } else {
+    for (dev of getLocalAddress().ipv4) {
+      sendUdpMc(ip, byteArray, dev.address);
+    }
+  }
+}
+
+// インタフェースを指定して UDP multicast 送信を実行する
+// ip:string, byteArray:uint8[], src:string
+function sendUdpMc(ip, byteArray, src) {
+  const buffer = new Buffer.from(byteArray);
+  const client = dgram.createSocket("udp4");
+  client.bind(0, () => {
+    client.setMulticastInterface(src);
+  });
+  client.send(buffer, 0, buffer.length, EL_port, ip, function (err, bytes) {
+    client.close();
+  });
+}
+
+// GETを受信した場合の処理
+// ip:string, uint8Array:uint8[]
+function elGet(ip, uint8Array) {
+  const elPacket = parseEL(uint8Array);
+  if (elPacket !== null) {
+    const deoj = elPacket.deoj[0] *256 + elPacket.deoj[1];
+    if (deoj == 0x05FF && elPacket.esv == 0x62) { // 機器オブジェクト（コントローラ）宛
+      const uint8ArraySend = createUint8ArraySend(elPacket, epcDevice);
+      sendUdp(ip, uint8ArraySend);
+    } else if (deoj == 0x0EF0 && elPacket.esv == 0x62) { // Node profile 宛
+      const uint8ArraySend = createUint8ArraySend(elPacket, epcNode);
+      sendUdp(ip, uint8ArraySend);
+    }
+  }
+}
+
+// ECHONET Lite 送信用パケットの作成
+// elPacket:object, epcs:object, return:uint8[]
+function createUint8ArraySend(elPacket, epcs) {
+  // 送信データの template。EHD, OPC は固定値。
+  let uint8ArraySend = [
+    0x10,
+    0x81,
+    0x00,
+    0x00,
+    0x0e,
+    0xf0,
+    0x01,
+    0x0e,
+    0xf0,
+    0x01,
+    0x72,
+    0x01,
+    0x80,
+    0x00,
+  ];
+  uint8ArraySend[2] = elPacket.tid[0]; // TID
+  uint8ArraySend[3] = elPacket.tid[1]; // TID
+  uint8ArraySend[4] = elPacket.deoj[0]; // SEOJ
+  uint8ArraySend[5] = elPacket.deoj[1]; // SEOJ
+  uint8ArraySend[6] = elPacket.deoj[2]; // SEOJ
+  uint8ArraySend[7] = elPacket.seoj[0]; // DEOJ
+  uint8ArraySend[8] = elPacket.seoj[1]; // DEOJ
+  uint8ArraySend[9] = elPacket.seoj[2]; // DEOJ
+  uint8ArraySend[12] = elPacket.epc; // EPC
+  const edt = epcs[elPacket.epc];
+  if (edt !== undefined) {
+    uint8ArraySend[10] = 0x72; // esv: Get_Res
+    uint8ArraySend[13] = edt.length; // PDC
+    for (let data of edt) {
+      uint8ArraySend.push(data);
+    }
+  } else {
+    uint8ArraySend[10] = 0x52; // esv: Get_SNA
+  }
+  return uint8ArraySend;
+}
+
+// 受信データのパース
+// uint8Array:uint8[], return:obj
+function parseEL(uint8Array) {
+  let elr = {};
+  if (uint8Array.length < 14) {
+    console.log("parseEL ERROR: UDP data is less than 14 bytes.");
+    return null;
+  }
+  const ehd = uint8Array[0] * 256 + uint8Array[1];
+  if (ehd != 0x1081) {
+    console.log("parseEL ERROR: EHD is wrong", uint8Array[0], uint8Array[1], ehd);
+    return null;
+  }
+  elr.ehd = [uint8Array[0], uint8Array[1]];
+  elr.tid = [uint8Array[2], uint8Array[3]];
+  elr.seoj = [uint8Array[4], uint8Array[5], uint8Array[6]];
+  elr.deoj = [uint8Array[7], uint8Array[8], uint8Array[9]];
+  elr.esv = uint8Array[10];
+  elr.opc = uint8Array[11];
+  elr.operations = uint8Array.slice(12);
+  if (elr.opc == 1) {
+    elr.epc = uint8Array[12];
+    elr.pdc = uint8Array[13];
+    if (elr.pdc !== 0) {
+      elr.edt = uint8Array.slice(14); // modified on 2021.03.10
+    }
+  }
+  return elr;
+}
+
+// Get a list of Local IP Address with 'os' module 
+// return: object
+// {
+//   ipv4:[{name:string, address:string}],
+//   ipv6:[{name:string, address:string}]
+// }
+function getLocalAddress() {
+  let ifacesObj = {};
+  ifacesObj.ipv4 = [];
+  ifacesObj.ipv6 = [];
+  let interfaces = os.networkInterfaces();
+  for (let dev in interfaces) {
+    interfaces[dev].forEach(function (details) {
+      if (!details.internal) {
+        switch (details.family) {
+          case "IPv4":
+            ifacesObj.ipv4.push({ name: dev, address: details.address });
+            break;
+          case "IPv6":
+            ifacesObj.ipv6.push({ name: dev, address: details.address });
+            break;
+        }
+      }
+    });
+  }
+  return ifacesObj;
 }
 
 // パケットモニターの表示内容を作成する
@@ -386,10 +386,12 @@ for (let adr of localAddress.ipv4){
 // array:vm.filters enum:showLoopBack, showGet, showInf, showGetres, showSNA
 function displayLog() {
   let log = [];
+  id = 0;
   for (let dataLog of dataLogArray) {
     const esv = dataLog.data[10];
     const pkt = {
-      id: dataLog.id,
+      // id: dataLog.id,
+      id: id,
       timeStamp: dataLog.timeStamp,
       direction: dataLog.direction,
       address: dataLog.ip,
@@ -398,17 +400,20 @@ function displayLog() {
     // 能動的に送信したパケットは表示する
     if (dataLog.direction == "T") {
       log.push(pkt);
+      id++;
       continue;
     }
     // Loopback がチェックされている場合 esv で判断
     if (vm.filters.includes("showLoopBack")) {
       if (filterEsv(esv)) {
         log.push(pkt);
+        id++;
       }
     // Loopback がチェックされていない場合　ip と esv で判断
     } else {
       if (filterEsv(esv) && filterLoopBack(dataLog.ip)) {
         log.push(pkt);
+        id++;
       }
     }
   }
@@ -765,11 +770,11 @@ function saveLog() {
     "ssngLog_" + year + month + day + hour + minute + second + ".txt";
 
   const buffer = Buffer.from(log);
-  fs.writeFile(logdir + "/" + filename, buffer, (err) => {
+  fs.writeFile(os.homedir() + logDirName + "/" + filename, buffer, (err) => {
     if (err) console.log("Error: Can not save a log file.");
 
     // send notification
-    const message = "Log is saved at " + logdir;
+    const message = "Log is saved at " + os.homedir() + logDirName;
     const myNotification = new Notification('Title', {
       body: message
     })
@@ -795,13 +800,12 @@ function packetMonitorShowPacketDetail(event) {
     $("#" + this.active_packet_id).removeClass("active");
     this.active_packet_id = "";
   }
-  let t = event.target;
-  $("#" + t.id).addClass("active");
-  this.active_packet_id = t.id;
+  $("#" + event.target.id).addClass("active");
+  this.active_packet_id = event.target.id;
 
   // 現在選択中のパケット ID
-  let id_parts = this.active_packet_id.split("-");
-  let pno = parseInt(id_parts[1], 10);
+  // console.log('active_packet_id', this.active_packet_id);
+  let pno = this.active_packet_id;
 
   // packetの解析結果の表示
   vm.packetDetail = analyzeData(dataLogArray[pno].data);
@@ -809,18 +813,20 @@ function packetMonitorShowPacketDetail(event) {
 
 // パケットモニタ部で、カーソルの上下キーに選択中のラインを上下させる
 function packetMonitorUpDownList(event) {
+  console.log('packetMonitorUpDownList', event);
   event.preventDefault();
   event.stopPropagation();
   // 選択中のパケット行がなければ終了
   if (!this.active_packet_id) {
+    console.log('no selected line!');
     return;
   }
   // 現在選択中のパケット ID
-  let id_parts = this.active_packet_id.split("-");
-  let pno = parseInt(id_parts[1], 10);
+  let pno = this.active_packet_id;
 
   let c = event.keyCode;
   let k = event.key;
+  // console.log('pno', pno, 'c', c, 'k', k);
   if (c === 38 || k === "ArrowUp") {
     // 上矢印キー
     if (vm.rbOrder == "normalOrder") {
@@ -847,5 +853,6 @@ function packetMonitorUpDownList(event) {
     return;
   }
   // 遷移したパケット行にフォーカスする
-  $("#packet-" + pno).focus();
+  console.log('$(pno).focus();', pno);
+  $("#" + pno).focus();
 }
