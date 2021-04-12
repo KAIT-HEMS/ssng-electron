@@ -1,6 +1,6 @@
-# Logs
-logs
-out
+dist
+_reference
+node_modules
 *.log
 npm-debug.log*
 yarn-debug.log*
