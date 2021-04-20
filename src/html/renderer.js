@@ -1,10 +1,10 @@
 // renderer.js for SSNG-electron
-// 2021.04.12
+// 2021.04.20
 
 // UDPで受信したデータは、dataLogArray に格納される。
 // packetId が 0 から順に付加される。
 
-const VERSION = "0.3.0 2021.04.12";
+const VERSION = "1.0.0 2021.04.20";
 const EL_port = 3610;
 const EL_mcAddress = "224.0.23.0";
 const logDirName = '/ssng-log';

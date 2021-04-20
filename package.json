@@ -1,6 +1,6 @@
 {
   "name": "ssng",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "SSNG electron version",
   "main": "src/main.js",
   "scripts": {
@@ -35,14 +35,11 @@
       "allowToChangeInstallationDirectory": true
     },
     "appx": {
-      "identityName": "ECHONETCONSORTIUM.ssng",
-      "applicationId": "ECHONETCONSORTIUM.ssng",
-      "publisherDisplayName": "HIROYUKI FUJITA",
-      "publisher": "CN=",
-      "languages": [
-        "JA-JP",
-        "EN-US"
-      ]
+      "identityName":"29929HiroyukiFujita.ssng",
+      "applicationId":"HiroyukiFujita.ssng",
+      "publisherDisplayName":"Hiroyuki Fujita",
+      "publisher":"CN=7956C9DC-C717-4FFB-926B-709A497F9265",
+      "languages":["JA-JP"]
     }
   },
   "keywords": [
