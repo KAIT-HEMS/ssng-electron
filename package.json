@@ -7,7 +7,7 @@
     "start": "electron .",
     "build-win": "electron-builder --win --x64",
     "build-mac": "electron-builder --mac --x64",
-    "build-appx": "electron-builder -w appx",
+    "build-appx": "electron-builder --win appx",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -18,16 +18,17 @@
     },
     "files": [
       "assets",
+      "appx",
       "src",
       "package.json",
       "package-lock.json"
     ],
     "mac": {
-      "icon": "src/assets/icon1024.png",
+      "icon": "assets/icon1024.png",
       "target": "dmg"
     },
     "win": {
-      "icon": "src/assets/icon1024.png",
+      "icon": "assets/icon1024.png",
       "target": "nsis"
     },
     "nsis": {
