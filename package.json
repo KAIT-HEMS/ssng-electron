@@ -35,11 +35,13 @@
       "allowToChangeInstallationDirectory": true
     },
     "appx": {
-      "identityName":"29929HiroyukiFujita.ssng",
-      "applicationId":"HiroyukiFujita.ssng",
-      "publisherDisplayName":"Hiroyuki Fujita",
-      "publisher":"CN=7956C9DC-C717-4FFB-926B-709A497F9265",
-      "languages":["JA-JP"]
+      "identityName": "29929HiroyukiFujita.ssng",
+      "applicationId": "HiroyukiFujita.ssng",
+      "publisherDisplayName": "Hiroyuki Fujita",
+      "publisher": "CN=7956C9DC-C717-4FFB-926B-709A497F9265",
+      "languages": [
+        "JA-JP"
+      ]
     }
   },
   "keywords": [
