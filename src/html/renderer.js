@@ -1,10 +1,10 @@
 // renderer.js for SSNG-electron
-// 2021.04.20
+// 2021.04.26
 
 // UDPで受信したデータは、dataLogArray に格納される。
 // packetId が 0 から順に付加される。
 
-const VERSION = "1.0.0 2021.04.20";
+const VERSION = "1.0.1 2021.04.26";
 const EL_port = 3610;
 const EL_mcAddress = "224.0.23.0";
 const logDirName = '/ssng-log';
@@ -396,6 +396,7 @@ function displayLog() {
       direction: dataLog.direction,
       address: dataLog.ip,
       hex: elFormat(dataLog.data),
+      data: dataLog.data
     };
     // 能動的に送信したパケットは表示する
     if (dataLog.direction == "T") {
@@ -478,8 +479,7 @@ function timeStamp() { // return:string
   return hour + ":" + minute + ":" + second;
 }
 
-function analyzeData(uint8Array) {
-  // uint8Array: [UInt8]
+function analyzeData(uint8Array) { // uint8Array: [UInt8]
   let analyzedData = "";
   let epcArray = [];
   const esv = uint8Array[10];
@@ -709,7 +709,7 @@ function hex2Array(hex) { // hex:string, return:uint8[]
 
 function createUint8ArrayFromFreeData(freeData) {
   if (!checkInputValue("free", vm.freeData)) {
-    console.log("vm.freeDataStyle.color: ", vm.freeDataStyle.color);
+    // console.log("vm.freeDataStyle.color: ", vm.freeDataStyle.color);
     vm.freeDataStyle.color = "red";
     window.alert("Check Free data");
     return false;
@@ -804,16 +804,22 @@ function packetMonitorShowPacketDetail(event) {
   this.active_packet_id = event.target.id;
 
   // 現在選択中のパケット ID
-  // console.log('active_packet_id', this.active_packet_id);
+  console.log('active_packet_id', this.active_packet_id);
   let pno = this.active_packet_id;
+  // reverse ボタンが選択されていると、IDは逆順になる
+  if (vm.rbOrder == "reverseOrder") {
+    pno = vm.packet_list.length - pno - 1;
+  }
 
   // packetの解析結果の表示
-  vm.packetDetail = analyzeData(dataLogArray[pno].data);
+  // console.log("showPacketDetail", pno, vm.packet_list[pno], vm.packet_list[pno].data);
+  // vm.packetDetail = analyzeData(dataLogArray[pno].data);
+  vm.packetDetail = analyzeData(vm.packet_list[pno].data);
 }
 
 // パケットモニタ部で、カーソルの上下キーに選択中のラインを上下させる
 function packetMonitorUpDownList(event) {
-  console.log('packetMonitorUpDownList', event);
+  // console.log('packetMonitorUpDownList', event);
   event.preventDefault();
   event.stopPropagation();
   // 選択中のパケット行がなければ終了
@@ -853,6 +859,6 @@ function packetMonitorUpDownList(event) {
     return;
   }
   // 遷移したパケット行にフォーカスする
-  console.log('$(pno).focus();', pno);
+  // console.log('$(pno).focus();', pno);
   $("#" + pno).focus();
 }
